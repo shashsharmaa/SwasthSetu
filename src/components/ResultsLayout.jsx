@@ -4,7 +4,8 @@ import HospitalCard from './HospitalCard';
 import HospitalMap from './HospitalMap';
 
 export default function ResultsLayout({ title, location, hospitals, resultType, embedded = false, onSelect, center, zoom }) {
-  const hasSearched = hospitals.length > 0;
+  const mapCenter = center || (location.toLowerCase().includes('mira') ? [19.28, 72.86] : undefined);
+  const mapZoom = zoom || (mapCenter ? 12 : undefined);
   const content = (
     <>
       <div className="mb-5 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">
@@ -14,14 +15,17 @@ export default function ResultsLayout({ title, location, hospitals, resultType, 
         <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-teal-700"><MapPinned className="h-4 w-4" /> {hospitals.length} hospitals found</p>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Hospitals for {title} in {location}</h1>
       </div>
-      <div className={hasSearched ? 'grid grid-cols-1 gap-6 md:grid-cols-2' : 'w-full'}>
-        {hasSearched && <section className="space-y-4 md:max-h-[600px] md:overflow-y-auto md:pr-2">
+      <section className="mb-8 h-[400px] w-full">
+        <HospitalMap hospitals={hospitals} resultType={resultType} onSelect={onSelect} center={mapCenter} zoom={mapZoom} />
+      </section>
+      <section>
+        <h2 className="mb-5 flex items-center gap-2 text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+          Hospitals Found ({hospitals.length})
+        </h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {hospitals.map((hospital) => <HospitalCard key={hospital.id} hospital={hospital} resultType={resultType} contextValue={title} location={location} onSelect={onSelect} />)}
-        </section>}
-        <section className={hasSearched ? 'md:sticky md:top-4 md:h-[600px]' : 'h-[500px] w-full'}>
-          <HospitalMap hospitals={hospitals} resultType={resultType} onSelect={onSelect} center={center} zoom={zoom} />
-        </section>
-      </div>
+        </div>
+      </section>
     </>
   );
 

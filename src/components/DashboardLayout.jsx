@@ -2,7 +2,6 @@ import { ArrowLeft, CheckCircle2, Info, LogIn, LogOut, Menu, Search, X } from 'l
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ResultsLayout from './ResultsLayout';
-import { mockHospitals } from '../data/mockHospitals';
 import { useAuth } from '../context/AuthContext';
 
 const insurers = ['Star Health', 'TATA AIG Health', 'HDFC ERGO Health'];
@@ -27,16 +26,14 @@ export default function DashboardLayout({ type, userName }) {
   const [location, setLocation] = useState('');
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
+  const [hospitals, setHospitals] = useState([]);
   const [selectedHospital, setSelectedHospital] = useState(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const title = isScheme ? 'Ayushman Bharat PM-JAY' : insurer;
-  const displayHospitals = isScheme
-    ? mockHospitals.map((hospital) => ({ ...hospital, networkStatus: hospital.networkStatus === 'Unknown' ? 'Unknown' : 'Empanelled' }))
-    : mockHospitals;
   const mapCenter = location.toLowerCase().includes('mira') || location.includes('401')
-    ? [19.288, 72.865]
+    ? [19.28, 72.86]
     : [19.076, 72.8777];
   const mapZoom = location ? 11 : 10;
 
@@ -48,15 +45,37 @@ export default function DashboardLayout({ type, userName }) {
     }
   }
 
-  function handleSearch(event) {
+  async function handleSearch(event) {
     event.preventDefault();
     if (!location.trim()) {
       setError('Please enter a city, area, or pincode.');
       return;
     }
     setError('');
-    setSearched(true);
     setSelectedHospital(null);
+    const params = new URLSearchParams({ location: location.trim() });
+    if (isScheme) {
+      params.set('scheme', 'PM-JAY');
+    } else {
+      params.set('insurer', insurer);
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/hospitals/search?${params.toString()}`);
+      if (!response.ok) {
+        const responseBody = await response.json().catch(() => ({}));
+        throw new Error(responseBody.error || `Request failed with status ${response.status}`);
+      }
+      const data = await response.json();
+      setHospitals(Array.isArray(data) ? data : []);
+    } catch (searchError) {
+      setError(`Unable to search hospitals: ${searchError.message}`);
+      setHospitals([]);
+      setSearched(true);
+      requestAnimationFrame(() => scrollToSection('results-section'));
+      return;
+    }
+    setSearched(true);
     requestAnimationFrame(() => scrollToSection('results-section'));
   }
 
@@ -131,7 +150,7 @@ export default function DashboardLayout({ type, userName }) {
 
       <section id="results-section" className="scroll-mt-24 border-y border-gray-100 bg-gray-50 px-5 py-20 sm:px-8">
         <div className="mx-auto max-w-7xl">
-          <ResultsLayout title={title} location={location || 'Mumbai'} hospitals={searched ? displayHospitals : []} resultType={type} embedded onSelect={handleSelectHospital} center={mapCenter} zoom={mapZoom} />
+          <ResultsLayout title={title} location={location || 'Mumbai'} hospitals={searched ? hospitals : []} resultType={type} embedded onSelect={handleSelectHospital} center={mapCenter} zoom={mapZoom} />
         </div>
       </section>
 
@@ -149,8 +168,8 @@ export default function DashboardLayout({ type, userName }) {
 }
 
 function DashboardHospitalDetails({ hospital, isScheme, context }) {
-  const isVerified = hospital.networkStatus === 'In-Network' || hospital.networkStatus === 'Empanelled';
-  const status = isScheme && hospital.networkStatus !== 'Unknown' ? 'Empanelled' : hospital.networkStatus;
+  const isVerified = isScheme ? hospital.is_pmjay_empanelled : true;
+  const status = isScheme ? 'PM-JAY Empanelled' : 'Network Hospital';
   return (
     <article className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
       <p className="text-sm font-bold uppercase tracking-[0.16em] text-teal-700">Hospital details</p>
@@ -161,6 +180,7 @@ function DashboardHospitalDetails({ hospital, isScheme, context }) {
         <div className="rounded-2xl bg-gray-50 p-4"><p className="text-sm text-gray-500">{isScheme ? 'Empanelment Status' : 'Network Status'}</p><span className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${isVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-700'}`}>{status}</span></div>
         <div className="rounded-2xl bg-teal-50 p-4"><p className="text-sm text-teal-800">Searching under</p><p className="mt-2 font-semibold text-teal-900">{context}</p></div>
       </div>
+      <p className="mt-6 text-sm text-gray-700"><span className="font-semibold">Accepted Insurances:</span> {(hospital.accepted_insurers || []).join(', ') || 'Not listed'}</p>
       <h3 className="mt-8 text-xl font-bold text-gray-900">Before You Visit</h3>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">{['Carry your insurance/scheme card and ID proof.', "Confirm the hospital's current network/empanelment status.", 'Ask if the required treatment/speciality is available.', 'Confirm if pre-authorization is required for your treatment.', 'Verify cashless treatment availability (if applicable).'].map((item) => <li key={item} className="flex gap-2 text-sm text-gray-700"><CheckCircle2 className="h-5 w-5 shrink-0 text-teal-600" />{item}</li>)}</ul>
       <p className="mt-6 text-xs text-gray-500">Last Verified: {hospital.lastVerified} | Source: Official Hospital Directory (Mock)</p>

@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 
 export default function HospitalCard({ hospital, resultType, contextValue, location, onSelect }) {
   const navigate = useNavigate();
-  const isVerified = hospital.networkStatus === 'In-Network' || hospital.networkStatus === 'Empanelled';
+  const isScheme = resultType === 'scheme';
+  const isVerified = isScheme ? hospital.is_pmjay_empanelled : true;
+  const statusLabel = isScheme ? 'PM-JAY Empanelled' : 'Network Hospital';
   const contextParam = resultType === 'scheme' ? 'scheme=PMJAY' : `insurer=${encodeURIComponent(contextValue || '')}`;
   const detailsPath = `/${resultType}/hospital/${hospital.id}?${contextParam}&location=${encodeURIComponent(location || '')}`;
 
@@ -18,11 +20,11 @@ export default function HospitalCard({ hospital, resultType, contextValue, locat
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-          {hospital.networkStatus}
+          {statusLabel}
         </span>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        {hospital.specialities.map((speciality) => (
+        {(hospital.specialities || []).map((speciality) => (
           <span key={speciality} className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">{speciality}</span>
         ))}
       </div>

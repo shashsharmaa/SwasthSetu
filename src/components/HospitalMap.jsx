@@ -53,7 +53,7 @@ export default function HospitalMap({ hospitals, resultType, onSelect, center = 
   const mappedHospitals = hospitals.filter((hospital) => Number.isFinite(hospital.lat) && Number.isFinite(hospital.lng));
 
   return (
-    <div className="relative h-[420px] overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm lg:h-full lg:min-h-[600px]">
+    <div className="relative h-full min-h-0 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm">
       <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResizeMap />

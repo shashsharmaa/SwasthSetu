@@ -1,6 +1,6 @@
 import { CheckCircle2, ChevronLeft, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { mockHospitals } from '../data/mockHospitals';
 
 const visitChecklist = [
   'Carry your insurance/scheme card and ID proof.',
@@ -14,7 +14,9 @@ export default function HospitalDetails() {
   const { id } = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const hospital = mockHospitals.find((item) => item.id === id);
+  const [hospital, setHospital] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const isScheme = location.pathname.startsWith('/scheme/');
   const resultType = isScheme ? 'scheme' : 'insurance';
   const context = isScheme
@@ -24,21 +26,46 @@ export default function HospitalDetails() {
     ? `scheme=PMJAY&location=${encodeURIComponent(searchParams.get('location') || '')}`
     : `insurer=${encodeURIComponent(searchParams.get('insurer') || '')}&location=${encodeURIComponent(searchParams.get('location') || '')}`;
 
+  useEffect(() => {
+    let mounted = true;
+    async function loadHospital() {
+      setIsLoading(true);
+      setLoadError('');
+      try {
+        const response = await fetch(`http://localhost:5000/api/hospitals/${encodeURIComponent(id)}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || `Request failed with status ${response.status}`);
+        }
+        if (mounted) setHospital(data);
+      } catch (error) {
+        if (mounted) setLoadError(error.message);
+      }
+      if (mounted) setIsLoading(false);
+    }
+    loadHospital();
+    return () => { mounted = false; };
+  }, [id]);
+
+  if (isLoading) {
+    return <main className="flex min-h-screen items-center justify-center bg-white text-gray-600">Loading hospital details...</main>;
+  }
+
   if (!hospital) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white px-6 text-center">
         <div>
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 text-2xl font-bold text-white">S</div>
           <h1 className="text-3xl font-semibold text-gray-900">Hospital not found</h1>
-          <p className="mt-3 text-gray-500">This hospital could not be found in our mock directory.</p>
+          <p className="mt-3 text-gray-500">{loadError || 'This hospital could not be found in the hospital directory.'}</p>
           <Link to="/" className="mt-6 inline-flex rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700">Back to home</Link>
         </div>
       </main>
     );
   }
 
-  const isVerified = hospital.networkStatus === 'In-Network' || hospital.networkStatus === 'Empanelled';
-  const statusLabel = isScheme ? (hospital.networkStatus === 'Unknown' ? 'Unknown' : 'Empanelled') : hospital.networkStatus;
+  const isVerified = isScheme ? hospital.is_pmjay_empanelled : true;
+  const statusLabel = isScheme ? 'PM-JAY Empanelled' : 'Network Hospital';
 
   return (
     <main className="min-h-screen bg-white text-black">
@@ -83,12 +110,13 @@ export default function HospitalDetails() {
               <p className="mt-3 flex items-center gap-2 font-semibold text-teal-900"><ShieldCheck className="h-5 w-5 text-teal-600" /> {context}</p>
             </div>
           </div>
+          <p className="mt-5 text-sm text-gray-700"><span className="font-semibold">Accepted Insurances:</span> {(hospital.accepted_insurers || []).join(', ') || 'Not listed'}</p>
         </section>
 
         <section className="mt-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-xl font-bold text-gray-900">Specialities</h2>
           <div className="mt-4 flex flex-wrap gap-2">
-            {hospital.specialities.map((speciality) => <span key={speciality} className="rounded-full bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700">{speciality}</span>)}
+            {(hospital.specialities || []).map((speciality) => <span key={speciality} className="rounded-full bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700">{speciality}</span>)}
           </div>
         </section>
 

@@ -1,11 +1,33 @@
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ResultsLayout from '../components/ResultsLayout';
-import { mockHospitals } from '../data/mockHospitals';
 
 export default function InsuranceResults() {
   const [searchParams] = useSearchParams();
   const insurer = searchParams.get('insurer') || 'your insurer';
   const location = searchParams.get('location') || 'your location';
+  const [hospitals, setHospitals] = useState([]);
+  const [error, setError] = useState('');
 
-  return <ResultsLayout title={insurer} location={location} hospitals={mockHospitals} resultType="insurance" />;
+  useEffect(() => {
+    let mounted = true;
+    const params = new URLSearchParams({ location, insurer });
+    fetch(`http://localhost:5000/api/hospitals/search?${params.toString()}`)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Request failed with status ${response.status}`);
+        return data;
+      })
+      .then((data) => {
+      if (!mounted) return;
+      setHospitals(Array.isArray(data) ? data : []);
+      })
+      .catch((queryError) => {
+        if (mounted) setError(queryError.message);
+      });
+    return () => { mounted = false; };
+  }, [insurer, location]);
+
+  if (error) return <main className="p-8 text-red-700">Unable to load hospitals: {error}</main>;
+  return <ResultsLayout title={insurer} location={location} hospitals={hospitals} resultType="insurance" />;
 }
