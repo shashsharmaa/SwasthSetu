@@ -55,7 +55,7 @@ export default function HospitalDetails() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white px-6 text-center">
         <div>
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 text-2xl font-bold text-white">S</div>
+          <img src="/logo.png" alt="SwasthSetu Logo" className="mx-auto mb-6 h-16 w-auto object-contain" />
           <h1 className="text-3xl font-semibold text-gray-900">Hospital not found</h1>
           <p className="mt-3 text-gray-500">{loadError || 'This hospital could not be found in the hospital directory.'}</p>
           <Link to="/" className="mt-6 inline-flex rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition hover:bg-teal-700">Back to home</Link>
@@ -72,8 +72,8 @@ export default function HospitalDetails() {
       <header className="border-b border-gray-100 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5 sm:px-8">
           <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-lg font-bold text-white shadow-lg shadow-teal-600/20">S</div>
-            <span className="text-lg font-bold tracking-tight">Swasth<span className="text-teal-600">Setu</span></span>
+            <img src="/logo.png" alt="SwasthSetu Logo" className="h-14 w-auto object-contain" />
+            <span className="text-2xl font-bold text-teal-800">SwasthSetu</span>
           </Link>
           <Link to={`/${resultType}/results?${resultsQuery}`} className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 transition hover:text-teal-700">
             <ChevronLeft className="h-4 w-4" /> Back to Results

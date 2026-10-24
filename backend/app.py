@@ -1,4 +1,5 @@
 import os
+from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -47,12 +48,48 @@ KIWI_SYSTEM_PROMPT = (
 )
 
 
+def haversine_distance_km(latitude_one, longitude_one, latitude_two, longitude_two):
+    earth_radius_km = 6371.0
+    latitude_delta = radians(latitude_two - latitude_one)
+    longitude_delta = radians(longitude_two - longitude_one)
+    first = (
+        sin(latitude_delta / 2) ** 2
+        + cos(radians(latitude_one))
+        * cos(radians(latitude_two))
+        * sin(longitude_delta / 2) ** 2
+    )
+    return earth_radius_km * 2 * asin(sqrt(first))
+
+
 @app.get("/api/hospitals/search")
 def search_hospitals():
     try:
         location = request.args.get("location", "").strip()
         insurer = request.args.get("insurer", "").strip()
         scheme = request.args.get("scheme", "").strip()
+        user_latitude = request.args.get("user_lat", "").strip()
+        user_longitude = request.args.get("user_lng", "").strip()
+        max_distance = request.args.get("max_distance", "").strip()
+
+        coordinates = None
+        if user_latitude or user_longitude:
+            try:
+                coordinates = (float(user_latitude), float(user_longitude))
+            except (TypeError, ValueError):
+                return jsonify({"error": "user_lat and user_lng must be valid numbers"}), 400
+            if not (-90 <= coordinates[0] <= 90 and -180 <= coordinates[1] <= 180):
+                return jsonify({"error": "user_lat or user_lng is outside the valid range"}), 400
+
+        distance_limit = None
+        if max_distance:
+            try:
+                distance_limit = float(max_distance)
+            except (TypeError, ValueError):
+                return jsonify({"error": "max_distance must be a valid number"}), 400
+            if distance_limit < 0:
+                return jsonify({"error": "max_distance cannot be negative"}), 400
+            if coordinates is None:
+                return jsonify({"error": "user_lat and user_lng are required for distance filtering"}), 400
 
         query = supabase.table("hospitals").select("*")
         if location:
@@ -63,7 +100,27 @@ def search_hospitals():
             query = query.eq("is_pmjay_empanelled", True)
 
         response = query.execute()
-        return jsonify(response.data), 200
+        hospitals = []
+        for hospital in response.data:
+            if coordinates is not None:
+                try:
+                    hospital_latitude = float(hospital.get("lat"))
+                    hospital_longitude = float(hospital.get("lng"))
+                except (TypeError, ValueError):
+                    if distance_limit is not None:
+                        continue
+                else:
+                    distance = haversine_distance_km(
+                        coordinates[0],
+                        coordinates[1],
+                        hospital_latitude,
+                        hospital_longitude,
+                    )
+                    hospital["distance_km"] = round(distance, 1)
+                    if distance_limit is not None and distance > distance_limit:
+                        continue
+            hospitals.append(hospital)
+        return jsonify(hospitals), 200
     except Exception as error:
         app.logger.exception("Hospital search failed")
         return jsonify({"error": str(error)}), 500

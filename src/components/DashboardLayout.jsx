@@ -1,16 +1,20 @@
-import { ArrowLeft, CheckCircle2, Info, LogIn, LogOut, Menu, Search, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Home, Info, LocateFixed, LogIn, LogOut, Map, MapPin, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ResultsLayout from './ResultsLayout';
+import AboutSection from './AboutSection';
+import KiwiChatbot from './KiwiChatbot';
+import DashboardHeader from './DashboardHeader';
 import { useAuth } from '../context/AuthContext';
+import { Dock, DockIcon, DockItem } from './ui/dock';
 
 const insurers = ['Star Health', 'TATA AIG Health', 'HDFC ERGO Health'];
 
 function Logo() {
   return (
-    <Link to="/" className="flex shrink-0 items-center gap-2 text-xl font-bold tracking-tight text-teal-700">
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-lg text-white">S</span>
-      Swasth<span className="text-teal-600">Setu</span>
+    <Link to="/" className="flex shrink-0 items-center gap-2">
+      <img src="/logo.png" alt="SwasthSetu Logo" className="h-14 w-auto object-contain" />
+      <span className="text-2xl font-bold text-teal-800">SwasthSetu</span>
     </Link>
   );
 }
@@ -21,13 +25,16 @@ function scrollToSection(id) {
 
 export default function DashboardLayout({ type, userName }) {
   const isScheme = type === 'scheme';
-  const [menuOpen, setMenuOpen] = useState(false);
   const [insurer, setInsurer] = useState(insurers[0]);
   const [location, setLocation] = useState('');
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
   const [hospitals, setHospitals] = useState([]);
   const [selectedHospital, setSelectedHospital] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [maxDistance, setMaxDistance] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
+  const [routeTarget, setRouteTarget] = useState(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -45,20 +52,38 @@ export default function DashboardLayout({ type, userName }) {
     }
   }
 
-  async function handleSearch(event) {
-    event.preventDefault();
-    if (!location.trim()) {
-      setError('Please enter a city, area, or pincode.');
-      return;
-    }
-    setError('');
-    setSelectedHospital(null);
+  function getCurrentLocation() {
+    if (!navigator.geolocation) return Promise.resolve(null);
+    setIsLocating(true);
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coordinates = { lat: position.coords.latitude, lng: position.coords.longitude };
+          setUserLocation(coordinates);
+          setIsLocating(false);
+          resolve(coordinates);
+        },
+        () => {
+          setIsLocating(false);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+      );
+    });
+  }
+
+  async function fetchHospitals(distance = maxDistance, coordinates = userLocation) {
     const params = new URLSearchParams({ location: location.trim() });
     if (isScheme) {
       params.set('scheme', 'PM-JAY');
     } else {
       params.set('insurer', insurer);
     }
+    if (coordinates) {
+      params.set('user_lat', String(coordinates.lat));
+      params.set('user_lng', String(coordinates.lng));
+    }
+    if (distance) params.set('max_distance', distance);
 
     try {
       const response = await fetch(`http://localhost:5000/api/hospitals/search?${params.toString()}`);
@@ -68,15 +93,45 @@ export default function DashboardLayout({ type, userName }) {
       }
       const data = await response.json();
       setHospitals(Array.isArray(data) ? data : []);
+      setSearched(true);
+      requestAnimationFrame(() => scrollToSection('results-section'));
     } catch (searchError) {
       setError(`Unable to search hospitals: ${searchError.message}`);
       setHospitals([]);
       setSearched(true);
       requestAnimationFrame(() => scrollToSection('results-section'));
+    }
+  }
+
+  async function handleSearch(event) {
+    event.preventDefault();
+    if (!location.trim()) {
+      setError('Please enter a city, area, or pincode.');
       return;
     }
-    setSearched(true);
-    requestAnimationFrame(() => scrollToSection('results-section'));
+    setError('');
+    setSelectedHospital(null);
+    setRouteTarget(null);
+    const coordinates = await getCurrentLocation();
+    await fetchHospitals(maxDistance, coordinates);
+  }
+
+  async function handleDistanceChange(distance) {
+    setMaxDistance(distance);
+    if (!location.trim() || !searched) return;
+    const coordinates = userLocation || await getCurrentLocation();
+    await fetchHospitals(distance, coordinates);
+  }
+
+  function clearSearch() {
+    setLocation('');
+    setHospitals([]);
+    setSearched(false);
+    setError('');
+    setMaxDistance('');
+    setUserLocation(null);
+    setSelectedHospital(null);
+    setRouteTarget(null);
   }
 
   function handleSelectHospital(hospital) {
@@ -84,47 +139,63 @@ export default function DashboardLayout({ type, userName }) {
     requestAnimationFrame(() => scrollToSection('details-section'));
   }
 
+  async function handleDirections(hospital) {
+    if (!Number.isFinite(Number(hospital.lat)) || !Number.isFinite(Number(hospital.lng))) {
+      setError('Directions are unavailable because this hospital has no map coordinates.');
+      return;
+    }
+    const coordinates = userLocation || await getCurrentLocation();
+    if (!coordinates) {
+      setError('Allow location access to get directions from your current location.');
+      return;
+    }
+    setError('');
+    setRouteTarget({
+      hospital: { lat: Number(hospital.lat), lng: Number(hospital.lng) },
+      user: coordinates,
+    });
+    requestAnimationFrame(() => scrollToSection('results-section'));
+  }
+
+  const dockItems = [
+    { label: 'Home', id: 'home-section', icon: <Home className="h-5 w-5" /> },
+    { label: 'Map & Results', id: 'results-section', icon: <Map className="h-5 w-5" /> },
+    { label: 'Hospital Details', id: 'details-section', icon: <FileText className="h-5 w-5" /> },
+    { label: 'About Us', id: 'about-section', icon: <Info className="h-5 w-5" /> },
+  ];
+
   return (
     <main className="min-h-screen bg-white text-black">
-      <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-5 px-5 py-3 sm:px-8">
+      <header className="sticky top-4 z-50 mx-auto flex max-w-7xl items-center gap-4 px-4 sm:px-8">
+        <div className="min-w-0 flex-1">
           <Logo />
-          <button type="button" className="ml-auto rounded-lg p-2 text-gray-600 md:hidden" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle navigation">
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-          <div className={`${menuOpen ? 'flex' : 'hidden'} absolute left-0 top-full w-full flex-col gap-1 border-b border-gray-100 bg-white p-4 md:static md:flex md:w-auto md:flex-1 md:flex-row md:items-center md:justify-center md:border-0 md:p-0`}>
-            {[
-              ['Home', 'home-section'],
-              ['Map & Results', 'results-section'],
-              ['Hospital Details', 'details-section'],
-              ['About Us', 'about-section'],
-            ].map(([label, id]) => (
-              <button key={id} type="button" onClick={() => { scrollToSection(id); setMenuOpen(false); }} className="rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-600 transition-all duration-300 hover:scale-105 hover:text-teal-700 active:scale-95 hover:shadow-lg md:text-center">
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className={`${menuOpen ? 'flex' : 'hidden'} absolute right-4 top-[calc(100%+190px)] gap-2 bg-white md:static md:flex`}>
-            <button type="button" onClick={handleAuth} className="inline-flex items-center gap-1.5 rounded-full border border-teal-600 px-4 py-2 text-sm font-semibold text-teal-700 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg">
-              {user ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />} {user ? 'Logout' : 'Login'}
-            </button>
-            <button type="button" onClick={() => navigate('/')} className="hidden items-center gap-1.5 rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg sm:inline-flex">
-              <ArrowLeft className="h-4 w-4" /> Back
-            </button>
-          </div>
         </div>
-      </nav>
+        <Dock className="shrink-0">
+          {dockItems.map((item) => (
+            <DockItem key={item.id} label={item.label} onClick={() => scrollToSection(item.id)}>
+              <DockIcon>{item.icon}</DockIcon>
+            </DockItem>
+          ))}
+        </Dock>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          {user && <span className="hidden px-2 text-sm font-semibold text-teal-700 lg:inline">Hello, {userName}</span>}
+          <button type="button" onClick={handleAuth} className="inline-flex items-center gap-1.5 rounded-xl border border-teal-600 px-3 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50">
+            {user ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />} {user ? 'Logout' : 'Login'}
+          </button>
+          <button type="button" onClick={() => navigate('/')} className="hidden items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 sm:inline-flex">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        </div>
+      </header>
 
-      <section id="home-section" className="relative mx-auto max-w-7xl scroll-mt-24 px-5 py-20 sm:px-8 lg:py-28">
+      <section id="home-section" className="relative w-full scroll-mt-24 px-4 py-6 md:px-8">
         {user && <h2 className="absolute left-5 top-8 text-3xl font-bold text-teal-700 sm:left-8 lg:top-12">Hello, {userName}</h2>}
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-teal-600">{isScheme ? 'Government scheme' : 'Private insurance'}</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">Find hospitals that work for you</h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-gray-500">Search trusted hospitals by {isScheme ? 'government scheme' : 'insurance provider'} and location.</p>
-          <form onSubmit={handleSearch} className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-[0_20px_70px_rgba(15,23,42,0.08)] sm:flex-row sm:items-end">
+        <div className="w-full text-center">
+          <DashboardHeader type={type} />
+          <form onSubmit={handleSearch} className="mt-10 flex w-full flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-[0_20px_70px_rgba(15,23,42,0.08)] sm:flex-row sm:items-end">
             {!isScheme && (
               <label className="flex-1">
-                <span className="mb-2 block text-sm font-semibold text-gray-700">Insurance provider</span>
+                <span className="mb-2 block text-sm font-semibold text-gray-700">Select Insurance Provider</span>
                 <select value={insurer} onChange={(event) => setInsurer(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-white text-black px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10">
                   {insurers.map((option) => <option className="bg-white text-black" key={option}>{option}</option>)}
                 </select>
@@ -132,25 +203,37 @@ export default function DashboardLayout({ type, userName }) {
             )}
             {isScheme && (
               <div className="flex-1">
-                <span className="mb-2 block text-sm font-semibold text-gray-700">Government Scheme</span>
+                <span className="mb-2 block text-sm font-semibold text-gray-700">Select Scheme</span>
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-black">Ayushman Bharat PM-JAY</div>
               </div>
             )}
             <label className="flex-1">
               <span className="mb-2 block text-sm font-semibold text-gray-700">Location</span>
-              <input required value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City, area, or pincode" className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10" />
+              <span className="relative block">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-teal-600" />
+                <input required value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City, area, or pincode" className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10" />
+              </span>
             </label>
-            <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg">
-              <Search className="h-5 w-5" /> Search
+            <button type="submit" className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg ${isScheme ? 'bg-green-600 hover:bg-green-700' : 'bg-teal-600 hover:bg-teal-700'}`}>
+              <Search className="h-5 w-5" /> {isLocating ? 'Locating...' : 'Search Hospitals'}
             </button>
+            <button type="button" onClick={clearSearch} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-teal-300 hover:text-teal-700">Clear All</button>
           </form>
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          <div className="mt-5 flex w-full flex-wrap items-center justify-center gap-2 text-sm">
+            <span className="mr-1 flex items-center gap-1 font-semibold text-slate-600"><LocateFixed className="h-4 w-4 text-teal-600" /> Distance:</span>
+            {[['', 'All'], ['5', 'Within 5 km'], ['10', 'Within 10 km'], ['20', 'Within 20 km']].map(([value, label]) => (
+              <button key={value || 'all'} type="button" onClick={() => handleDistanceChange(value)} className={`rounded-full px-4 py-2 font-medium transition ${maxDistance === value ? 'bg-teal-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700'}`}>
+              {label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <section id="results-section" className="scroll-mt-24 border-y border-gray-100 bg-gray-50 px-5 py-20 sm:px-8">
         <div className="mx-auto max-w-7xl">
-          <ResultsLayout title={title} location={location || 'Mumbai'} hospitals={searched ? hospitals : []} resultType={type} embedded onSelect={handleSelectHospital} center={mapCenter} zoom={mapZoom} />
+          <ResultsLayout title={title} location={location || 'Mumbai'} hospitals={searched ? hospitals : []} resultType={type} embedded onSelect={handleSelectHospital} onDirections={handleDirections} center={mapCenter} zoom={mapZoom} userLocation={userLocation} routeTarget={routeTarget} />
         </div>
       </section>
 
@@ -160,9 +243,17 @@ export default function DashboardLayout({ type, userName }) {
         </div>
       </section>
 
-      <section id="about-section" className="scroll-mt-24 bg-teal-50 px-5 py-24 text-center sm:px-8">
-        <h2 className="text-3xl font-bold text-gray-900">About SwasthSetu - Coming Soon</h2>
+      <section id="about-section" className="scroll-mt-24 bg-teal-50 px-4 py-12 sm:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 text-center">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-teal-700">Our story</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">About SwasthSetu</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-gray-600">A smart, scalable, and inclusive platform for healthcare empowerment.</p>
+          </div>
+          <AboutSection />
+        </div>
       </section>
+      <KiwiChatbot />
     </main>
   );
 }

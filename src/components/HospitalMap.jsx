@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { Link } from 'react-router-dom';
 import L from 'leaflet';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 const defaultCenter = [19.076, 72.8777];
 const markerIcon = new L.Icon({
@@ -13,14 +15,21 @@ const markerIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
+const userLocationIcon = L.divIcon({
+  className: 'user-location-marker',
+  html: '<span style="display:block;width:16px;height:16px;border-radius:9999px;background:#2563eb;border:3px solid white;box-shadow:0 0 0 5px rgba(37,99,235,.25),0 2px 6px rgba(15,23,42,.3)"></span>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
 
-function FitMapToHospitals({ hospitals, center, zoom }) {
+function FitMapToHospitals({ hospitals, center, zoom, userLocation }) {
   const map = useMap();
 
   useEffect(() => {
     const coordinates = hospitals
       .filter((hospital) => Number.isFinite(hospital.lat) && Number.isFinite(hospital.lng))
       .map((hospital) => [hospital.lat, hospital.lng]);
+    if (userLocation) coordinates.push([userLocation.lat, userLocation.lng]);
 
     if (coordinates.length === 0) {
       map.setView(center, zoom);
@@ -29,7 +38,7 @@ function FitMapToHospitals({ hospitals, center, zoom }) {
     } else if (coordinates.length > 1) {
       map.fitBounds(coordinates, { padding: [30, 30] });
     }
-  }, [center, hospitals, map, zoom]);
+  }, [center, hospitals, map, userLocation, zoom]);
 
   return null;
 }
@@ -49,7 +58,33 @@ function ResizeMap() {
   return null;
 }
 
-export default function HospitalMap({ hospitals, resultType, onSelect, center = defaultCenter, zoom = 10 }) {
+function RouteControl({ routeTarget }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!routeTarget) return undefined;
+    const routingControl = L.Routing.control({
+      waypoints: [
+        L.latLng(routeTarget.user.lat, routeTarget.user.lng),
+        L.latLng(routeTarget.hospital.lat, routeTarget.hospital.lng),
+      ],
+      addWaypoints: false,
+      routeWhileDragging: false,
+      showAlternatives: false,
+      collapsible: true,
+      lineOptions: { styles: [{ color: '#0d9488', opacity: 0.85, weight: 5 }] },
+      createMarker: () => null,
+    }).addTo(map);
+
+    return () => {
+      map.removeControl(routingControl);
+    };
+  }, [map, routeTarget]);
+
+  return null;
+}
+
+export default function HospitalMap({ hospitals, resultType, onSelect, onDirections, center = defaultCenter, zoom = 10, userLocation, routeTarget }) {
   const mappedHospitals = hospitals.filter((hospital) => Number.isFinite(hospital.lat) && Number.isFinite(hospital.lng));
 
   return (
@@ -57,18 +92,27 @@ export default function HospitalMap({ hospitals, resultType, onSelect, center = 
       <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResizeMap />
-        <FitMapToHospitals hospitals={mappedHospitals} center={center} zoom={zoom} />
+        <FitMapToHospitals hospitals={mappedHospitals} center={center} zoom={zoom} userLocation={userLocation} />
         {mappedHospitals.map((hospital) => (
           <Marker key={hospital.id} position={[hospital.lat, hospital.lng]} icon={markerIcon}>
             <Popup>
               <div className="min-w-[170px]">
                 <p className="font-semibold text-gray-900">{hospital.name}</p>
                 <p className="mt-1 text-xs text-gray-500">{hospital.address}</p>
-                {onSelect ? <button type="button" className="mt-2 text-xs font-semibold text-teal-700 hover:underline" onClick={() => onSelect(hospital)}>View details</button> : <Link className="mt-2 inline-block text-xs font-semibold text-teal-700 hover:underline" to={`/${resultType}/hospital/${hospital.id}`}>View details</Link>}
+                <div className="mt-2 flex gap-3">
+                  {onSelect ? <button type="button" className="text-xs font-semibold text-teal-700 hover:underline" onClick={() => onSelect(hospital)}>View details</button> : <Link className="text-xs font-semibold text-teal-700 hover:underline" to={`/${resultType}/hospital/${hospital.id}`}>View details</Link>}
+                  {onDirections && <button type="button" className="text-xs font-semibold text-teal-700 hover:underline" onClick={() => onDirections(hospital)}>Get directions</button>}
+                </div>
               </div>
             </Popup>
           </Marker>
         ))}
+        {userLocation && (
+          <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon}>
+            <Popup>Your current location</Popup>
+          </Marker>
+        )}
+        <RouteControl routeTarget={routeTarget} />
       </MapContainer>
     </div>
   );

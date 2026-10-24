@@ -7,8 +7,8 @@ const insurers = ['Star Health', 'TATA AIG Health', 'HDFC ERGO Health'];
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-600 text-xl font-bold text-white shadow-lg shadow-teal-600/20">S</div>
-      <span className="text-xl font-bold tracking-tight">Swasth<span className="text-teal-600">Setu</span></span>
+      <img src="/logo.png" alt="SwasthSetu Logo" className="h-14 w-auto object-contain" />
+      <span className="text-2xl font-bold text-teal-800">SwasthSetu</span>
     </div>
   );
 }

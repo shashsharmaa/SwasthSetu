@@ -1072,11 +1072,9 @@ function App() {
   };
   return <div className={`page ${prototype ? "prototype" : ""}`}>
     <header className="site-header">
-      <a href="/" className="wordmark" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: '#0d9488', fontWeight: 'bold', fontSize: '24px' }}>
-        <div style={{ width: '32px', height: '32px', background: '#0d9488', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        SwasthSetu
+      <a href="/" className="wordmark" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+        <img src="/logo.png" alt="SwasthSetu Logo" className="h-16 w-auto object-contain" style={{ height: '64px' }} />
+        <span style={{ fontSize: '30px', fontWeight: 'bold', color: '#115e59' }}>SwasthSetu</span>
       </a>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {user && <span style={{ color: '#0d9488', fontWeight: 600 }}>Hello, {userName}</span>}
@@ -1204,6 +1202,12 @@ var css = `@font-face{font-family:'Orbit DM Sans';font-style:normal;font-weight:
 function OrbitDeliveryHero({ theme = "auto", assetBaseUrl = "https://cdn.jsdelivr.net/gh/fadeichev2121/planet@b3f70fbf4b577845b1d9d5947c9410fb4d925dae" }) {
   return <AssetBaseContext.Provider value={assetBaseUrl.replace(/\/$/, "") + "/"}><div className="orbit-delivery" data-theme={theme}><style>{css}</style><App /></div></AssetBaseContext.Provider>;
 }
+function LoginGlobeScene() {
+  const assetBaseUrl = "https://cdn.jsdelivr.net/gh/fadeichev2121/planet@b3f70fbf4b577845b1d9d5947c9410fb4d925dae";
+  const motion = useRef5(createMotion());
+  return <AssetBaseContext.Provider value={`${assetBaseUrl}/`}><Canvas2 orthographic camera={{ position: [0, 0, 9], zoom: 150, near: 0.1, far: 30 }} dpr={[1, 2]} frameloop="always" gl={{ antialias: true, alpha: true }}><ResponsiveCamera /><AdaptiveResolution active /><ambientLight intensity={0.9} /><hemisphereLight args={["#f1f5ff", "#8aabc5", 1.4]} /><directionalLight position={[-3, 5, 5]} intensity={2.6} color="#fff8f1" /><directionalLight position={[3, 2, -2]} intensity={1.8} color="#c5deff" /><World2 motion={motion} auto reduced={false} onReady={() => {}} /></Canvas2></AssetBaseContext.Provider>;
+}
 export {
+  LoginGlobeScene,
   OrbitDeliveryHero as default
 };

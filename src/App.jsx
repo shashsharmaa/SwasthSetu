@@ -6,7 +6,6 @@ import SchemeResults from './pages/SchemeResults';
 import HospitalDetails from './pages/HospitalDetails';
 import InsuranceDashboard from './pages/InsuranceDashboard';
 import SchemeDashboard from './pages/SchemeDashboard';
-import KiwiChatbot from './components/KiwiChatbot';
 
 export default function App() {
   return (
@@ -23,7 +22,6 @@ export default function App() {
         <Route path="/insurance/hospital/:id" element={<HospitalDetails />} />
         <Route path="/scheme/hospital/:id" element={<HospitalDetails />} />
       </Routes>
-      <KiwiChatbot />
     </>
   );
 }
