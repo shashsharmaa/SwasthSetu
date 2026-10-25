@@ -65,4 +65,4 @@ The project uses a `hospitals` table in Supabase with columns like `name`, `addr
 
 ## 👨‍💻 Author
 
-**Shashank Sharma** | IDEA LAB-V | Computer Engineering
+**Shashank Sharma** | Computer Engineering
