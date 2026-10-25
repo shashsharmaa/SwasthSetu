@@ -1,6 +1,6 @@
 import { Component, useEffect, useRef, useState } from 'react';
 import Draggable from 'react-draggable';
-import { Minus, Mic, MicOff, RotateCcw, Send, X } from 'lucide-react';
+import { Minus, Mic, MicOff, Pause, Play, RotateCcw, Send, Volume2, VolumeX, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
 import KiwiLogo from './KiwiLogo';
@@ -21,6 +21,25 @@ class MarkdownMessage extends Component {
   }
 }
 
+function cleanTextForSpeech(text) {
+  let clean = String(text);
+  clean = clean.replace(/[*#_`]/g, '');
+  clean = clean.replace(/\bPMJAY\b/gi, 'P M Jay');
+  clean = clean.replace(/\bPM-JAY\b/gi, 'P M Jay');
+  clean = clean.replace(/\bHDFC\b/gi, 'H D F C');
+  clean = clean.replace(/\bTATA\b/gi, 'Tata');
+  clean = clean.replace(/\bAIG\b/gi, 'A I G');
+  clean = clean.replace(/\bOPD\b/gi, 'O P D');
+  clean = clean.replace(/\bICU\b/gi, 'I C U');
+  clean = clean.replace(/\bkm away\b/gi, 'kilometers away');
+  clean = clean.replace(/\bkm\b/gi, 'kilometers');
+  clean = clean.replace(/\bvs\b/gi, 'versus');
+  clean = clean.replace(/\be\.g\.\b/gi, 'for example');
+  clean = clean.replace(/\bi\.e\.\b/gi, 'that is');
+  clean = clean.replace(/\//g, ' or ');
+  return clean.replace(/\s+/g, ' ').trim();
+}
+
 export default function KiwiChatbot() {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -28,12 +47,85 @@ export default function KiwiChatbot() {
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState(null);
   const nodeRef = useRef(null);
   const recognitionRef = useRef(null);
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    setCurrentlySpeakingId(null);
   }, []);
+
+  function getIndianVoice(preferHindi) {
+    if (!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices();
+    const hindiVoice = voices.find((voice) => voice.lang === 'hi-IN' && voice.name.includes('Female'))
+      || voices.find((voice) => voice.lang === 'hi-IN')
+      || null;
+    const englishVoice = voices.find((voice) => voice.lang === 'en-IN' && voice.name.includes('Female'))
+      || voices.find((voice) => voice.lang === 'en-IN')
+      || voices.find((voice) => voice.name.includes('India') || voice.name.includes('Heera') || voice.name.includes('Swara'))
+      || null;
+    return preferHindi ? hindiVoice || englishVoice : englishVoice || hindiVoice;
+  }
+
+  function speakText(text, ttsText, messageId) {
+    if (!isVoiceEnabled || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+
+    window.speechSynthesis.cancel();
+    setCurrentlySpeakingId(messageId || null);
+    setIsPaused(false);
+    const speechText = typeof ttsText === 'string' && ttsText.trim() ? ttsText : text;
+    const usesHindiScript = /[\u0900-\u097F]/.test(speechText);
+    const cleanText = cleanTextForSpeech(speechText).replace(/-/g, ' ');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    const voice = getIndianVoice(usesHindiScript);
+    if (voice) utterance.voice = voice;
+    utterance.lang = usesHindiScript ? 'hi-IN' : 'en-IN';
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setCurrentlySpeakingId(messageId || null);
+      setIsPaused(false);
+    };
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setCurrentlySpeakingId(null);
+      setIsPaused(false);
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setCurrentlySpeakingId(null);
+      setIsPaused(false);
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function toggleMessageSpeech(chatMessage) {
+    if (currentlySpeakingId === chatMessage.id) {
+      if (isPaused) resumeSpeech();
+      else pauseSpeech();
+      return;
+    }
+    speakText(chatMessage.text, chatMessage.ttsText, chatMessage.id);
+  }
+
+  function pauseSpeech() {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.pause();
+    setIsPaused(true);
+  }
+
+  function resumeSpeech() {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.resume();
+    setIsPaused(false);
+  }
 
   function toggleListening() {
     if (isListening) {
@@ -90,12 +182,22 @@ export default function KiwiChatbot() {
     setMessages((currentMessages) => [...currentMessages, userMessage]);
     setMessage('');
     setIsTyping(true);
+    const userContext = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('kiwi_user_context') || '{}');
+      } catch {
+        return {};
+      }
+    })();
+    userContext.lastUserMessage = trimmedMessage;
+    userContext.recentConversation = history.slice(-6);
+    localStorage.setItem('kiwi_user_context', JSON.stringify(userContext));
 
     try {
       const response = await fetch('http://localhost:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, userContext }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -105,7 +207,15 @@ export default function KiwiChatbot() {
       if (!reply) {
         throw new Error('The chat response did not contain a reply.');
       }
-      setMessages((currentMessages) => [...currentMessages, { id: `${Date.now()}-kiwi`, text: String(reply), sender: 'assistant' }]);
+      const botReply = String(reply);
+      const replyTts = typeof data.reply_tts === 'string' ? data.reply_tts : '';
+      const replyMessage = {
+        id: `${Date.now()}-kiwi`,
+        text: botReply,
+        ttsText: replyTts,
+        sender: 'assistant',
+      };
+      setMessages((currentMessages) => [...currentMessages, replyMessage]);
     } catch (error) {
       console.error('FRONTEND FETCH ERROR:', error);
       console.error('Kiwi chat request failed:', error);
@@ -113,6 +223,26 @@ export default function KiwiChatbot() {
     } finally {
       setIsTyping(false);
     }
+  }
+
+  function clearChat() {
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+    setIsPaused(false);
+    setCurrentlySpeakingId(null);
+    setMessages([]);
+  }
+
+  function toggleVoice() {
+    setIsVoiceEnabled((enabled) => {
+      if (enabled) window.speechSynthesis?.cancel();
+      if (enabled) {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        setCurrentlySpeakingId(null);
+      }
+      return !enabled;
+    });
   }
 
   return (
@@ -135,7 +265,12 @@ export default function KiwiChatbot() {
                 <button type="button" onClick={() => setMinimized((value) => !value)} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label={minimized ? 'Expand Kiwi' : 'Minimize Kiwi'}>
                   <Minus className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => setMessages([])} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label="Clear chat">
+                <button type="button" onClick={toggleVoice} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label="Toggle Voice Response" title="Toggle Voice Response">
+                  {isVoiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </button>
+                {isSpeaking && !isPaused && <button type="button" onClick={pauseSpeech} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label="Pause voice response" title="Pause voice response"><Pause className="h-4 w-4" /></button>}
+                {isSpeaking && isPaused && <button type="button" onClick={resumeSpeech} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label="Resume voice response" title="Resume voice response"><Play className="h-4 w-4" /></button>}
+                <button type="button" onClick={clearChat} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label="Clear chat">
                   <RotateCcw className="h-4 w-4" />
                 </button>
                 <button type="button" onClick={() => { setOpen(false); setMinimized(false); }} className="rounded-lg p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700" aria-label="Close Kiwi">
@@ -152,8 +287,11 @@ export default function KiwiChatbot() {
               )}
               {messages.map((chatMessage) => (
                 <div key={chatMessage.id} className={`flex ${chatMessage.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-6 ${chatMessage.sender === 'user' ? 'bg-teal-600 text-white shadow-md shadow-teal-600/15' : 'border border-slate-100 bg-white text-slate-700 shadow-sm'}`}>
-                    {chatMessage.sender === 'assistant' ? <MarkdownMessage text={chatMessage.text || ''} /> : chatMessage.text}
+                  <div className="flex max-w-[85%] flex-col items-start gap-1">
+                    <div className={`rounded-2xl px-4 py-3 text-base leading-6 ${chatMessage.sender === 'user' ? 'bg-teal-600 text-white shadow-md shadow-teal-600/15' : 'border border-slate-100 bg-white text-slate-700 shadow-sm'}`}>
+                      {chatMessage.sender === 'assistant' ? <MarkdownMessage text={chatMessage.text || ''} /> : chatMessage.text}
+                    </div>
+                    {chatMessage.sender === 'assistant' && <button type="button" onClick={() => toggleMessageSpeech(chatMessage)} className="rounded-lg p-1 text-slate-500 hover:bg-teal-100 hover:text-teal-700" aria-label={currentlySpeakingId === chatMessage.id && !isPaused ? 'Pause this Kiwi response' : 'Play this Kiwi response'} title={currentlySpeakingId === chatMessage.id && !isPaused ? 'Pause this response' : 'Play this response'}>{currentlySpeakingId === chatMessage.id && !isPaused ? <Pause className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}</button>}
                   </div>
                 </div>
               ))}

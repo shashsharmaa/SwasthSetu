@@ -1,5 +1,5 @@
-import { ExternalLink, MapPin, Navigation } from 'lucide-react';
-import { useState } from 'react';
+import { Bookmark, BookmarkCheck, Copy, ExternalLink, MapPin, Navigation, Share2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReportIssueModal from './ReportIssueModal';
 import { getLastVerified, getOfficialSource, getSafeUrl } from '../lib/officialSources';
@@ -7,6 +7,14 @@ import { getLastVerified, getOfficialSource, getSafeUrl } from '../lib/officialS
 export default function HospitalCard({ hospital, resultType, contextValue, location, onSelect, onDirections, isCompared = false, onToggleCompare }) {
   const navigate = useNavigate();
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('savedHospitals') || '[]');
+      return Array.isArray(saved) && saved.some((savedHospital) => savedHospital.id === hospital.id);
+    } catch {
+      return false;
+    }
+  });
   const isScheme = resultType === 'scheme';
   const isVerified = isScheme ? hospital.is_pmjay_empanelled : true;
   const statusLabel = isScheme ? 'PM-JAY Empanelled' : 'Network Hospital';
@@ -20,6 +28,51 @@ export default function HospitalCard({ hospital, resultType, contextValue, locat
       ? { label: 'Needs Re-verification', className: 'bg-yellow-100 text-yellow-700', icon: '🟡' }
       : { label: 'Sample Data', className: 'bg-red-100 text-red-700', icon: '🔴' };
   const sourceUrl = getOfficialSource(hospital, contextValue, resultType);
+
+  useEffect(() => {
+    function refreshSavedState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('savedHospitals') || '[]');
+        setIsSaved(Array.isArray(saved) && saved.some((savedHospital) => savedHospital.id === hospital.id));
+      } catch {
+        setIsSaved(false);
+      }
+    }
+    window.addEventListener('savedHospitalsChanged', refreshSavedState);
+    return () => window.removeEventListener('savedHospitalsChanged', refreshSavedState);
+  }, [hospital.id]);
+
+  function toggleSaved() {
+    let saved = [];
+    try {
+      const stored = JSON.parse(localStorage.getItem('savedHospitals') || '[]');
+      saved = Array.isArray(stored) ? stored : [];
+    } catch {
+      saved = [];
+    }
+    const next = isSaved ? saved.filter((savedHospital) => savedHospital.id !== hospital.id) : [...saved, hospital];
+    localStorage.setItem('savedHospitals', JSON.stringify(next));
+    setIsSaved(!isSaved);
+    window.dispatchEvent(new Event('savedHospitalsChanged'));
+    window.alert(isSaved ? 'Removed' : 'Saved to profile');
+  }
+
+  function shareHospital() {
+    const text = `Check out this hospital on SwasthSetu: ${hospital.name} - ${hospital.address}. Accepts: ${(hospital.accepted_insurers || []).join(', ') || 'Not listed'}.`;
+    window.open(`whatsapp://send?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async function copyHospitalLink() {
+    const link = `${window.location.origin}${detailsPath}`;
+    const text = `Check out this hospital on SwasthSetu: ${hospital.name} - ${hospital.address}. Accepts: ${(hospital.accepted_insurers || []).join(', ') || 'Not listed'}.\n${link}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      window.alert('Link copied to clipboard!');
+    } catch (error) {
+      console.error('Unable to copy hospital link:', error);
+      window.alert('Unable to copy the link. Please try again.');
+    }
+  }
 
   return (
     <>
@@ -41,9 +94,20 @@ export default function HospitalCard({ hospital, resultType, contextValue, locat
             </span>
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-          {statusLabel}
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={toggleSaved} className="rounded-lg p-2 text-teal-700 transition hover:bg-teal-50" aria-label={isSaved ? `Remove ${hospital.name} from saved hospitals` : `Save ${hospital.name}`}>
+            {isSaved ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+          </button>
+          <button type="button" onClick={shareHospital} className="rounded-lg p-2 text-teal-700 transition hover:bg-teal-50" aria-label={`Share ${hospital.name}`}>
+            <Share2 className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={copyHospitalLink} className="rounded-lg p-2 text-teal-700 transition hover:bg-teal-50" aria-label={`Copy link for ${hospital.name}`} title="Copy Link">
+            <Copy className="h-5 w-5" />
+          </button>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+            {statusLabel}
+          </span>
+        </div>
       </div>
       <div className={`mt-4 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${freshness.className}`}>{freshness.icon} {freshness.label}</div>
       <div className="mt-2 text-xs text-gray-500">

@@ -6,7 +6,16 @@ const rows = [
   ['Insurances Accepted', (hospital) => (hospital.accepted_insurers || []).join(', ') || 'Not listed'],
   ['PMJAY Status', (hospital) => hospital.is_pmjay_empanelled ? 'Empanelled' : 'Not empanelled'],
   ['Specialities', (hospital) => (hospital.specialities || []).join(', ') || 'Not listed'],
-  ['Last Verified', (hospital) => hospital.last_verified || hospital.lastVerified || 'Not available'],
+  ['Verification', (hospital) => {
+    const value = hospital.last_verified || hospital.lastVerified;
+    const days = value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86400000)) : null;
+    const freshness = days !== null && days <= 30
+      ? ['Verified', 'bg-green-100 text-green-700']
+      : days !== null && days <= 180
+        ? ['Needs Re-verification', 'bg-yellow-100 text-yellow-700']
+        : ['Sample Data', 'bg-red-100 text-red-700'];
+    return <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${freshness[1]}`}>{freshness[0]}</span>;
+  }],
 ];
 
 export default function CompareModal({ hospitals, onRemove, onClose }) {

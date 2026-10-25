@@ -1,10 +1,12 @@
-import { ArrowLeft, CheckCircle2, FileText, Home, Info, LocateFixed, LogIn, LogOut, Map, MapPin, Search } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Home, Info, LocateFixed, LogIn, LogOut, Map, MapPin, Search, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ResultsLayout from './ResultsLayout';
 import AboutSection from './AboutSection';
 import KiwiChatbot from './KiwiChatbot';
+import ProfileModal from './ProfileModal';
+import SosButton from './SosButton';
 import DashboardHeader from './DashboardHeader';
 import { useAuth } from '../context/AuthContext';
 import { Dock, DockIcon, DockItem } from './ui/dock';
@@ -36,6 +38,8 @@ export default function DashboardLayout({ type, userName }) {
   const [maxDistance, setMaxDistance] = useState('');
   const [isLocating, setIsLocating] = useState(false);
   const [routeTarget, setRouteTarget] = useState(null);
+  const [sosHospitals, setSosHospitals] = useState([]);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
@@ -146,6 +150,20 @@ export default function DashboardLayout({ type, userName }) {
     requestAnimationFrame(() => scrollToSection('details-section'));
   }
 
+  function handleSosHospitalsFound(nearestHospitals, coordinates) {
+    setSosHospitals(nearestHospitals);
+    setUserLocation(coordinates);
+    requestAnimationFrame(() => scrollToSection('results-section'));
+  }
+
+  function handleViewSavedHospital(hospital) {
+    setIsProfileOpen(false);
+    setLocation(hospital.city || hospital.pincode || '');
+    setHospitals((current) => current.some((item) => item.id === hospital.id) ? current : [...current, hospital]);
+    setSearched(true);
+    requestAnimationFrame(() => scrollToSection('results-section'));
+  }
+
   async function handleDirections(hospital) {
     if (!Number.isFinite(Number(hospital.lat)) || !Number.isFinite(Number(hospital.lng))) {
       setError('Directions are unavailable because this hospital has no map coordinates.');
@@ -186,6 +204,9 @@ export default function DashboardLayout({ type, userName }) {
         </Dock>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           {user && <span className="hidden px-2 text-sm font-semibold text-teal-700 lg:inline">Hello, {userName}</span>}
+          <button type="button" onClick={() => setIsProfileOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl border border-teal-600 px-3 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50">
+            <User className="h-4 w-4" /> <span className="hidden sm:inline">Profile</span>
+          </button>
           <button type="button" onClick={handleAuth} className="inline-flex items-center gap-1.5 rounded-xl border border-teal-600 px-3 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50">
             {user ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />} {user ? 'Logout' : 'Login'}
           </button>
@@ -196,9 +217,9 @@ export default function DashboardLayout({ type, userName }) {
       </header>
 
       <section id="home-section" className="relative w-full scroll-mt-24 px-4 py-6 md:px-8">
-        {user && <h2 className="absolute left-5 top-8 text-3xl font-bold text-teal-700 sm:left-8 lg:top-12">Hello, {userName}</h2>}
+        {user && <h2 className="relative z-10 mt-4 text-center text-3xl font-bold text-teal-700 sm:text-left">Hello, {userName}</h2>}
         <div className="w-full text-center">
-          <DashboardHeader type={type} totalHospitals={searched ? hospitals.length : 0} />
+          <DashboardHeader type={type} totalHospitals={hospitals.length} hasSearched={searched} />
           <div className="mx-auto mt-5 flex w-fit rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="tablist" aria-label="Search pathway">
             <button type="button" onClick={() => navigate(`/insurance/dashboard${location.trim() ? `?location=${encodeURIComponent(location.trim())}` : ''}`)} className={`relative rounded-full px-4 py-2 text-sm font-semibold transition ${!isScheme ? 'text-teal-800' : 'text-slate-500 hover:text-teal-700'}`}>
               {!isScheme && <motion.span layoutId="active-pathway" className="absolute inset-0 -z-0 rounded-full bg-teal-100" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
@@ -250,7 +271,7 @@ export default function DashboardLayout({ type, userName }) {
 
       <section id="results-section" className="scroll-mt-24 border-y border-gray-100 bg-gray-50 px-5 py-20 sm:px-8">
         <div className="mx-auto max-w-7xl">
-          <ResultsLayout title={title} location={location || 'Mumbai'} hospitals={searched ? hospitals : []} resultType={type} embedded onSelect={handleSelectHospital} onDirections={handleDirections} center={mapCenter} zoom={mapZoom} userLocation={userLocation} routeTarget={routeTarget} />
+          <ResultsLayout title={title} location={location || 'Mumbai'} hospitals={searched ? hospitals : []} resultType={type} embedded onSelect={handleSelectHospital} onDirections={handleDirections} center={mapCenter} zoom={mapZoom} userLocation={userLocation} routeTarget={routeTarget} highlightedHospitals={sosHospitals} />
         </div>
       </section>
 
@@ -271,6 +292,8 @@ export default function DashboardLayout({ type, userName }) {
         </div>
       </section>
       <KiwiChatbot />
+      <SosButton insurer={isScheme ? '' : insurer} scheme={isScheme ? 'PM-JAY' : ''} onHospitalsFound={handleSosHospitalsFound} />
+      {isProfileOpen && <ProfileModal userName={userName} onClose={() => setIsProfileOpen(false)} onViewMap={handleViewSavedHospital} />}
     </main>
   );
 }

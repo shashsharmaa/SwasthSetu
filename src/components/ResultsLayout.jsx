@@ -6,7 +6,7 @@ import HospitalCard from './HospitalCard';
 import HospitalMap from './HospitalMap';
 import CompareModal from './CompareModal';
 
-export default function ResultsLayout({ title, location, hospitals, resultType, embedded = false, onSelect, onDirections, center, zoom, userLocation, routeTarget }) {
+export default function ResultsLayout({ title, location, hospitals, resultType, embedded = false, onSelect, onDirections, center, zoom, userLocation, routeTarget, highlightedHospitals = [] }) {
   const [comparison, setComparison] = useState([]);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const navigate = useNavigate();
@@ -71,7 +71,7 @@ export default function ResultsLayout({ title, location, hospitals, resultType, 
           aria-hidden="true"
         />
         <div className="relative z-10 h-full w-full rounded-3xl bg-white p-1">
-          <HospitalMap hospitals={hospitals} resultType={resultType} onSelect={onSelect} onDirections={onDirections} center={mapCenter} zoom={mapZoom} userLocation={userLocation} routeTarget={routeTarget} />
+          <HospitalMap hospitals={hospitals} highlightedHospitals={highlightedHospitals} resultType={resultType} onSelect={onSelect} onDirections={onDirections} center={mapCenter} zoom={mapZoom} userLocation={userLocation} routeTarget={routeTarget} />
         </div>
       </section>
       <section>

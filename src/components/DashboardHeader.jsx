@@ -19,9 +19,10 @@ const headerContent = {
   },
 };
 
-export default function DashboardHeader({ type, totalHospitals = 0 }) {
+export default function DashboardHeader({ type, totalHospitals = 0, hasSearched = false }) {
   const content = headerContent[type] || headerContent.insurance;
   const { Icon } = content;
+  const showHospitalCount = hasSearched || totalHospitals > 0;
 
   return (
     <div className={`mb-8 flex w-full flex-col items-center justify-between gap-6 rounded-3xl border p-8 text-left ${content.wrapperClassName} md:flex-row`}>
@@ -33,11 +34,9 @@ export default function DashboardHeader({ type, totalHospitals = 0 }) {
         <h1 className="mt-4 text-3xl font-bold text-slate-900">{content.heading}</h1>
         <p className="mt-2 text-slate-500">{content.subtext}</p>
         <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
-          <span className="flex items-center gap-1"><CheckCircle size={14} className="text-green-500" /> Data Synced: {new Date().toLocaleDateString()}</span>
-          <span aria-hidden="true">|</span>
-          <span>{totalHospitals} Hospitals</span>
-          <span aria-hidden="true">|</span>
-          <span>Verified Sources</span>
+          {showHospitalCount && <span>{totalHospitals} Hospitals found</span>}
+          {showHospitalCount && <span aria-hidden="true">|</span>}
+          <span className="flex items-center gap-1"><CheckCircle size={14} className="text-green-500" /> Verified Sources</span>
         </div>
       </div>
       <div className="hidden overflow-hidden rounded-xl md:block">

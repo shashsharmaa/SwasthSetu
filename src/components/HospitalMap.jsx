@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet-routing-machine';
@@ -22,11 +22,11 @@ const userLocationIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
-function FitMapToHospitals({ hospitals, center, zoom, userLocation }) {
+function FitMapToHospitals({ hospitals, highlightedHospitals, center, zoom, userLocation }) {
   const map = useMap();
 
   useEffect(() => {
-    const coordinates = hospitals
+    const coordinates = [...hospitals, ...highlightedHospitals]
       .filter((hospital) => Number.isFinite(hospital.lat) && Number.isFinite(hospital.lng))
       .map((hospital) => [hospital.lat, hospital.lng]);
     if (userLocation) coordinates.push([userLocation.lat, userLocation.lng]);
@@ -38,7 +38,7 @@ function FitMapToHospitals({ hospitals, center, zoom, userLocation }) {
     } else if (coordinates.length > 1) {
       map.fitBounds(coordinates, { padding: [30, 30] });
     }
-  }, [center, hospitals, map, userLocation, zoom]);
+  }, [center, hospitals, highlightedHospitals, map, userLocation, zoom]);
 
   return null;
 }
@@ -84,7 +84,7 @@ function RouteControl({ routeTarget }) {
   return null;
 }
 
-export default function HospitalMap({ hospitals, resultType, onSelect, onDirections, center = defaultCenter, zoom = 10, userLocation, routeTarget }) {
+export default function HospitalMap({ hospitals, highlightedHospitals = [], resultType, onSelect, onDirections, center = defaultCenter, zoom = 10, userLocation, routeTarget }) {
   const mappedHospitals = hospitals.filter((hospital) => Number.isFinite(hospital.lat) && Number.isFinite(hospital.lng));
 
   return (
@@ -92,7 +92,7 @@ export default function HospitalMap({ hospitals, resultType, onSelect, onDirecti
       <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResizeMap />
-        <FitMapToHospitals hospitals={mappedHospitals} center={center} zoom={zoom} userLocation={userLocation} />
+        <FitMapToHospitals hospitals={mappedHospitals} highlightedHospitals={highlightedHospitals} center={center} zoom={zoom} userLocation={userLocation} />
         {mappedHospitals.map((hospital) => (
           <Marker key={hospital.id} position={[hospital.lat, hospital.lng]} icon={markerIcon}>
             <Popup>
@@ -106,6 +106,11 @@ export default function HospitalMap({ hospitals, resultType, onSelect, onDirecti
               </div>
             </Popup>
           </Marker>
+        ))}
+        {highlightedHospitals.filter((hospital) => Number.isFinite(Number(hospital.lat)) && Number.isFinite(Number(hospital.lng))).map((hospital) => (
+          <CircleMarker key={`sos-${hospital.id}`} center={[Number(hospital.lat), Number(hospital.lng)]} radius={16} pathOptions={{ color: '#dc2626', fillColor: '#ef4444', fillOpacity: 0.25, weight: 3 }}>
+            <Popup><span className="font-semibold text-red-700">SOS nearest: {hospital.name}</span></Popup>
+          </CircleMarker>
         ))}
         {userLocation && (
           <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon}>
