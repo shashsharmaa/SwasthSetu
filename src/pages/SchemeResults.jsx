@@ -12,7 +12,7 @@ export default function SchemeResults() {
   useEffect(() => {
     let mounted = true;
     const params = new URLSearchParams({ location, scheme: 'PM-JAY' });
-    fetch(`http://localhost:5000/api/hospitals/search?${params.toString()}`)
+    fetch(`/api/hospitals/search?${params.toString()}`)
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || `Request failed with status ${response.status}`);

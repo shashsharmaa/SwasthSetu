@@ -22,7 +22,7 @@ export default function SosButton({ insurer, scheme, onHospitalsFound }) {
         });
         if (insurer) params.set('insurer', insurer);
         if (scheme) params.set('scheme', scheme);
-        const response = await fetch(`http://localhost:5000/api/hospitals/nearest?${params.toString()}`);
+        const response = await fetch(`/api/hospitals/nearest?${params.toString()}`);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || `Request failed with status ${response.status}`);
         const nearest = Array.isArray(data) ? data : [];

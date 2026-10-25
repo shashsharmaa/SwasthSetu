@@ -33,7 +33,7 @@ export default function HospitalDetails() {
       setIsLoading(true);
       setLoadError('');
       try {
-        const response = await fetch(`http://localhost:5000/api/hospitals/${encodeURIComponent(id)}`);
+        const response = await fetch(`/api/hospitals/${encodeURIComponent(id)}`);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(data.error || `Request failed with status ${response.status}`);

@@ -97,7 +97,7 @@ export default function DashboardLayout({ type, userName }) {
     if (distance) params.set('max_distance', distance);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/hospitals/search?${params.toString()}`);
+      const response = await fetch(`/api/hospitals/search?${params.toString()}`);
       if (!response.ok) {
         const responseBody = await response.json().catch(() => ({}));
         throw new Error(responseBody.error || `Request failed with status ${response.status}`);
