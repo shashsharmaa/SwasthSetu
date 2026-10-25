@@ -1,6 +1,7 @@
-import { CheckCircle2, ChevronLeft, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ExternalLink, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { getOfficialSource, getSafeUrl } from '../lib/officialSources';
 
 const visitChecklist = [
   'Carry your insurance/scheme card and ID proof.',
@@ -66,6 +67,7 @@ export default function HospitalDetails() {
 
   const isVerified = isScheme ? hospital.is_pmjay_empanelled : true;
   const statusLabel = isScheme ? 'PM-JAY Empanelled' : 'Network Hospital';
+  const sourceUrl = getOfficialSource(hospital, searchParams.get('insurer'), resultType);
 
   return (
     <main className="min-h-screen bg-white text-black">
@@ -88,6 +90,14 @@ export default function HospitalDetails() {
         </div>
 
         <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <a href={getSafeUrl(sourceUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-700">
+              <ExternalLink className="h-4 w-4" /> Verify Current Status on Official Website
+            </a>
+          </div>
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+            ⚠️ Information may change. Always confirm with the hospital before admission.
+          </div>
           <p className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-teal-700">Hospital details</p>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{hospital.name}</h1>
           <p className="mt-4 flex items-start gap-2 text-gray-600">
@@ -132,7 +142,6 @@ export default function HospitalDetails() {
           </ul>
         </section>
 
-        <p className="mt-6 text-center text-xs text-gray-500">Last Verified: {hospital.lastVerified} | Source: Official Hospital Directory (Mock)</p>
       </div>
     </main>
   );

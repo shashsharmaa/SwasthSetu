@@ -1,4 +1,4 @@
-import { Landmark, ShieldCheck } from 'lucide-react';
+import { CheckCircle, Landmark, ShieldCheck } from 'lucide-react';
 
 const headerContent = {
   insurance: {
@@ -19,7 +19,7 @@ const headerContent = {
   },
 };
 
-export default function DashboardHeader({ type }) {
+export default function DashboardHeader({ type, totalHospitals = 0 }) {
   const content = headerContent[type] || headerContent.insurance;
   const { Icon } = content;
 
@@ -32,6 +32,13 @@ export default function DashboardHeader({ type }) {
         </span>
         <h1 className="mt-4 text-3xl font-bold text-slate-900">{content.heading}</h1>
         <p className="mt-2 text-slate-500">{content.subtext}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1"><CheckCircle size={14} className="text-green-500" /> Data Synced: {new Date().toLocaleDateString()}</span>
+          <span aria-hidden="true">|</span>
+          <span>{totalHospitals} Hospitals</span>
+          <span aria-hidden="true">|</span>
+          <span>Verified Sources</span>
+        </div>
       </div>
       <div className="hidden overflow-hidden rounded-xl md:block">
         <img src="/header-illustration.png" alt="Hospital Illustration" className="w-72 border-none object-cover" />

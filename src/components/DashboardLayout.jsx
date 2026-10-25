@@ -1,6 +1,7 @@
 import { ArrowLeft, CheckCircle2, FileText, Home, Info, LocateFixed, LogIn, LogOut, Map, MapPin, Search } from 'lucide-react';
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ResultsLayout from './ResultsLayout';
 import AboutSection from './AboutSection';
 import KiwiChatbot from './KiwiChatbot';
@@ -8,7 +9,7 @@ import DashboardHeader from './DashboardHeader';
 import { useAuth } from '../context/AuthContext';
 import { Dock, DockIcon, DockItem } from './ui/dock';
 
-const insurers = ['Star Health', 'TATA AIG Health', 'HDFC ERGO Health'];
+const insurers = ['Star Health', 'HDFC ERGO', 'TATA AIG'];
 
 function Logo() {
   return (
@@ -36,7 +37,13 @@ export default function DashboardLayout({ type, userName }) {
   const [isLocating, setIsLocating] = useState(false);
   const [routeTarget, setRouteTarget] = useState(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    const initialLocation = searchParams.get('location');
+    if (initialLocation) setLocation(initialLocation);
+  }, [searchParams]);
 
   const title = isScheme ? 'Ayushman Bharat PM-JAY' : insurer;
   const mapCenter = location.toLowerCase().includes('mira') || location.includes('401')
@@ -191,13 +198,23 @@ export default function DashboardLayout({ type, userName }) {
       <section id="home-section" className="relative w-full scroll-mt-24 px-4 py-6 md:px-8">
         {user && <h2 className="absolute left-5 top-8 text-3xl font-bold text-teal-700 sm:left-8 lg:top-12">Hello, {userName}</h2>}
         <div className="w-full text-center">
-          <DashboardHeader type={type} />
+          <DashboardHeader type={type} totalHospitals={searched ? hospitals.length : 0} />
+          <div className="mx-auto mt-5 flex w-fit rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="tablist" aria-label="Search pathway">
+            <button type="button" onClick={() => navigate(`/insurance/dashboard${location.trim() ? `?location=${encodeURIComponent(location.trim())}` : ''}`)} className={`relative rounded-full px-4 py-2 text-sm font-semibold transition ${!isScheme ? 'text-teal-800' : 'text-slate-500 hover:text-teal-700'}`}>
+              {!isScheme && <motion.span layoutId="active-pathway" className="absolute inset-0 -z-0 rounded-full bg-teal-100" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
+              <span className="relative z-10">🏥 Private Insurance</span>
+            </button>
+            <button type="button" onClick={() => navigate(`/scheme/dashboard${location.trim() ? `?location=${encodeURIComponent(location.trim())}` : ''}`)} className={`relative rounded-full px-4 py-2 text-sm font-semibold transition ${isScheme ? 'text-green-800' : 'text-slate-500 hover:text-green-700'}`}>
+              {isScheme && <motion.span layoutId="active-pathway" className="absolute inset-0 -z-0 rounded-full bg-green-100" transition={{ type: 'spring', stiffness: 400, damping: 30 }} />}
+              <span className="relative z-10">🛡️ Government Scheme</span>
+            </button>
+          </div>
           <form onSubmit={handleSearch} className="mt-10 flex w-full flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-[0_20px_70px_rgba(15,23,42,0.08)] sm:flex-row sm:items-end">
             {!isScheme && (
               <label className="flex-1">
                 <span className="mb-2 block text-sm font-semibold text-gray-700">Select Insurance Provider</span>
                 <select value={insurer} onChange={(event) => setInsurer(event.target.value)} className="w-full rounded-xl border border-gray-200 bg-white text-black px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10">
-                  {insurers.map((option) => <option className="bg-white text-black" key={option}>{option}</option>)}
+                  {insurers.map((option) => <option className="bg-white text-black" key={option} value={option}>{option}</option>)}
                 </select>
               </label>
             )}
@@ -211,7 +228,7 @@ export default function DashboardLayout({ type, userName }) {
               <span className="mb-2 block text-sm font-semibold text-gray-700">Location</span>
               <span className="relative block">
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-teal-600" />
-                <input required value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City, area, or pincode" className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10" />
+                <input required value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City, area, district, or pincode" className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10" />
               </span>
             </label>
             <button type="submit" className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold text-white transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg ${isScheme ? 'bg-green-600 hover:bg-green-700' : 'bg-teal-600 hover:bg-teal-700'}`}>

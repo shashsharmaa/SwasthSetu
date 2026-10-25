@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const insurers = ['Star Health', 'TATA AIG Health', 'HDFC ERGO Health'];
+const insurers = ['Star Health', 'HDFC ERGO', 'TATA AIG'];
 
 function Logo() {
   return (
@@ -56,7 +56,7 @@ export default function InsuranceSelect() {
               <span className="mb-2 block text-sm font-medium text-gray-700">Location</span>
               <span className="relative block">
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <input type="text" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Enter City, Area, or Pincode" className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 outline-none transition placeholder:text-gray-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10" />
+                <input type="text" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Enter city, area, district, or pincode" className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 outline-none transition placeholder:text-gray-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10" />
               </span>
               {errors.location && <span className="mt-1.5 block text-xs text-red-600">{errors.location}</span>}
             </label>

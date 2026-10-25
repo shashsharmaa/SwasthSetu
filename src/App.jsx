@@ -6,6 +6,8 @@ import SchemeResults from './pages/SchemeResults';
 import HospitalDetails from './pages/HospitalDetails';
 import InsuranceDashboard from './pages/InsuranceDashboard';
 import SchemeDashboard from './pages/SchemeDashboard';
+import InsuranceSelect from './pages/InsuranceSelect';
+import SchemeSelect from './pages/SchemeSelect';
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
         <Route path="/scheme/login" element={<LoginPage />} />
         <Route path="/insurance/dashboard" element={<InsuranceDashboard />} />
         <Route path="/scheme/dashboard" element={<SchemeDashboard />} />
+        <Route path="/insurance/select" element={<InsuranceSelect />} />
+        <Route path="/scheme/select" element={<SchemeSelect />} />
         <Route path="/insurance/results" element={<InsuranceResults />} />
         <Route path="/scheme/results" element={<SchemeResults />} />
         <Route path="/insurance/hospital/:id" element={<HospitalDetails />} />

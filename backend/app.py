@@ -93,7 +93,13 @@ def search_hospitals():
 
         query = supabase.table("hospitals").select("*")
         if location:
-            query = query.ilike("city", f"%{location}%")
+            query = query.or_(
+                f"name.ilike.%{location}%,"
+                f"address.ilike.%{location}%,"
+                f"city.ilike.%{location}%,"
+                f"district.ilike.%{location}%,"
+                f"pincode.ilike.%{location}%"
+            )
         if insurer:
             query = query.contains("accepted_insurers", [insurer])
         if scheme:
